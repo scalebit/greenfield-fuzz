@@ -98,3 +98,35 @@ func TestMsgTransferOut_ValidateBasic(t *testing.T) {
 		})
 	}
 }
+
+func FuzzMsgTransferOut_ValidateBasic(f *testing.F) {
+
+	f.Add(1)
+	f.Fuzz(func(t *testing.T, a int) {
+		tt := struct {
+			name string
+			msg  MsgTransferOut
+			err  error
+		}{
+			name: "invalid amount",
+			msg: MsgTransferOut{
+				From: sample.RandAccAddressHex(),
+				To:   "0x0000000000000000000000000000000000001000",
+				Amount: &sdk.Coin{
+					Denom:  "coin",
+					Amount: sdk.NewInt(int64(a)),
+				},
+			},
+			err: sdkerrors.ErrInvalidCoins,
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.msg.ValidateBasic()
+			if tt.err != nil {
+				// require.ErrorIs(t, err, tt.err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	})
+}

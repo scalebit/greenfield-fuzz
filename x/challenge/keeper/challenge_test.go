@@ -28,6 +28,19 @@ func TestGetChallengeId(t *testing.T) {
 	require.True(t, keeper.GetChallengeId(ctx) == 100)
 }
 
+func FuzzGetChallengeId(f *testing.F) {
+	f.Add(uint64(100))
+	f.Fuzz(func(t *testing.T, a uint64) {
+		keeper, ctx := makeKeeper(t)
+		keeper.SaveChallenge(ctx, types.Challenge{
+			Id:            a,
+			ExpiredHeight: 1000,
+		})
+		require.True(t, keeper.GetChallengeId(ctx) == a)
+	})
+
+}
+
 func TestAttestedChallenges(t *testing.T) {
 	keeper, ctx := makeKeeper(t)
 	params := types.DefaultParams()

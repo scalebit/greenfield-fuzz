@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/mint"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/golang/mock/gomock"
+	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnb-chain/greenfield/x/challenge/keeper"
@@ -27,6 +28,25 @@ func TestParamsQuery(t *testing.T) {
 	response, err := keeper.Params(ctx, &types.QueryParamsRequest{})
 	require.NoError(t, err)
 	require.Equal(t, &types.QueryParamsResponse{Params: params}, response)
+}
+
+func FuzzParamsQuery(f *testing.F) {
+	f.Add("")
+
+	f.Fuzz(func(t *testing.T, a string) {
+		keeper, ctx := makeKeeper(t)
+		params := types.DefaultParams()
+		fuzz.NewFromGoFuzz([]byte(a)).Fuzz(&params)
+		if params.ChallengeKeepAlivePeriod <= 0 {
+			return
+		}
+		err := keeper.SetParams(ctx, params)
+		require.NoError(t, err)
+
+		response, err := keeper.Params(ctx, &types.QueryParamsRequest{})
+		require.NoError(t, err)
+		require.Equal(t, &types.QueryParamsResponse{Params: params}, response)
+	})
 }
 
 func TestAttestedChallengeQuery(t *testing.T) {

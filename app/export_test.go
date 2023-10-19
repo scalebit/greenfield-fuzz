@@ -21,3 +21,24 @@ func TestExportAppStateAndValidators(t *testing.T) {
 		t.Fatalf("error exporting state: %s", err)
 	}
 }
+
+// func FuzzExportAppStateAndValidators(f *testing.F) {
+// 	logger := log.NewNopLogger()
+// 	db := dbm.NewMemDB()
+// 	app, _, _ := testutil.NewTestApp(logger, db, nil, true, test.TEST_CHAIN_ID)
+// 	testcases := []string{""}
+// 	for _, tc := range testcases {
+// 		f.Add(tc) // Use f.Add to provide a seed corpus
+// 	}
+
+// 	f.Fuzz(func(t *testing.T, a string) {
+// 		var data []string
+// 		fuzz.NewFromGoFuzz([]byte(a)).NilChance(0.1).Fuzz(&data)
+
+// 		_, err := app.ExportAppStateAndValidators(false, data, []string{banktypes.ModuleName})
+// 		if err != nil {
+// 			t.Fatalf("error exporting state: %s", err)
+// 		}
+// 	})
+
+// }

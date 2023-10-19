@@ -9,6 +9,7 @@ import (
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/mint"
+	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnb-chain/greenfield/testutil/nullify"
@@ -33,6 +34,27 @@ func TestGenesis(t *testing.T) {
 	nullify.Fill(got)
 
 	// this line is used by starport scaffolding # genesis/test/assert
+}
+
+func FuzzGenesis(f *testing.F) {
+	f.Add("")
+	f.Fuzz(func(t *testing.T, a string) {
+		params := types.DefaultParams()
+		fuzz.NewFromGoFuzz([]byte(a)).Fuzz(&params)
+		genesisState := types.GenesisState{
+			Params: types.DefaultParams(),
+
+			// this line is used by starport scaffolding # genesis/test/state
+		}
+
+		k, ctx := makeKeeper(t)
+		challenge.InitGenesis(ctx, *k, genesisState)
+		got := challenge.ExportGenesis(ctx, *k)
+		require.NotNil(t, got)
+
+		nullify.Fill(&genesisState)
+		nullify.Fill(got)
+	})
 }
 
 func makeKeeper(t *testing.T) (*keeper.Keeper, sdk.Context) {

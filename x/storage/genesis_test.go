@@ -10,6 +10,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/cosmos/cosmos-sdk/x/mint"
+	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bnb-chain/greenfield/testutil/nullify"
@@ -56,4 +57,23 @@ func TestGenesis(t *testing.T) {
 	nullify.Fill(got)
 
 	// this line is used by starport scaffolding # genesis/test/assert
+}
+
+func FuzzGenesis(f *testing.F) {
+	f.Add("1")
+	f.Fuzz(func(t *testing.T, a string) {
+		genesisState := types.GenesisState{
+			Params: types.DefaultParams(),
+		}
+
+		fuzz.NewFromGoFuzz([]byte(a)).Fuzz(&genesisState.Params.DiscontinueConfirmPeriod)
+
+		k, ctx := makeKeeper(t)
+		storage.InitGenesis(ctx, *k, genesisState)
+		got := storage.ExportGenesis(ctx, *k)
+		require.NotNil(t, got)
+
+		nullify.Fill(&genesisState)
+		nullify.Fill(got)
+	})
 }
