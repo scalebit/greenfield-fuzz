@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"math/rand"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
@@ -56,12 +55,11 @@ func TestRemoveSpSlashAmount(t *testing.T) {
 }
 
 func FuzzRemoveSpSlashAmount(f *testing.F) {
-	f.Add(int64(100))
+	f.Add(int64(451))
 
 	f.Fuzz(func(t *testing.T, a int64) {
 		keeper, ctx := makeKeeper(t)
-		var count int = rand.Intn(100) + 1
-		t.Log(count)
+		var count int = int(a)%100 + 1
 		for i := 1; i < count; i++ {
 			keeper.SetSpSlashAmount(ctx, uint32(i), sdk.NewInt(a))
 		}

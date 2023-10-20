@@ -3,6 +3,7 @@ package ante_test
 import (
 	"encoding/hex"
 	"fmt"
+	"testing"
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/eth/ethsecp256k1"
@@ -222,4 +223,71 @@ func (suite *AnteTestSuite) TestAnteHandler() {
 			}
 		})
 	}
+}
+
+func FuzzAnteHandler(f *testing.F) {
+	suite := &AnteTestSuite{}
+	privKey, _ := keys.NewPrivateKeyManager(test.TEST_PRIVATE_KEY)
+	// pubKey := privKey.PubKey()
+	addr := privKey.GetAddr()
+
+	setup := func() {
+		suite.SetupTest()
+
+		acc := suite.app.AccountKeeper.NewAccountWithAddress(suite.ctx, addr.Bytes())
+		suite.Require().NoError(acc.SetSequence(1))
+		suite.app.AccountKeeper.SetAccount(suite.ctx, acc)
+
+		// get coins from validator
+		bz, _ := hex.DecodeString(test.TEST_PUBKEY)
+		faucetPubKey := &ethsecp256k1.PubKey{Key: bz}
+		err := suite.app.BankKeeper.SendCoins(suite.ctx, faucetPubKey.Address().Bytes(), acc.GetAddress(), sdk.Coins{sdk.Coin{
+			Denom:  test.TEST_TOKEN_NAME,
+			Amount: sdk.NewInt(100000000000000),
+		}})
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	tc := struct {
+		name      string
+		txFn      func() sdk.Tx
+		checkTx   bool
+		reCheckTx bool
+		expPass   bool
+	}{"fails - DeliverTx unregistered msg type MsgSubmitEvidence",
+		func() sdk.Tx {
+			gas := uint64(2000000000)
+			fee := sdk.NewCoins(sdk.NewCoin(test.TEST_TOKEN_NAME, sdk.NewIntFromUint64(gas)))
+			txBuilder := suite.CreateTestEIP712MsgSubmitEvidence(addr, privKey, test.TEST_CHAIN_ID, gas, fee)
+			return txBuilder.GetTx()
+		}, true, false, false}
+
+	f.Add(uint64(2000000000))
+	f.Fuzz(func(t *testing.T, a uint64) {
+		suite.SetT(t)
+		// suite.SetupTest()
+		tc.txFn = func() sdk.Tx {
+			gas := a
+			fee := sdk.NewCoins(sdk.NewCoin(test.TEST_TOKEN_NAME, sdk.NewIntFromUint64(gas)))
+			txBuilder := suite.CreateTestEIP712MsgSubmitEvidence(addr, privKey, test.TEST_CHAIN_ID, gas, fee)
+			return txBuilder.GetTx()
+		}
+
+		suite.Run(tc.name, func() {
+			setup()
+
+			suite.ctx = suite.ctx.WithIsCheckTx(tc.checkTx).WithIsReCheckTx(tc.reCheckTx)
+
+			_, err := suite.anteHandler(suite.ctx, tc.txFn(), false)
+
+			if tc.expPass {
+				suite.Require().NoError(err)
+			} else {
+				suite.Require().Error(err)
+			}
+		})
+	})
+
 }

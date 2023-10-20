@@ -93,6 +93,21 @@ func TestSequenceU32(t *testing.T) {
 	require.Equal(t, n, uint32(1))
 }
 
+func FuzzSequenceU32(f *testing.F) {
+	f.Add(uint32(0))
+	f.Fuzz(func(t *testing.T, a uint32) {
+		ctx := NewMockContext()
+		store := ctx.KVStore(storetypes.NewKVStoreKey("test"))
+
+		seq := sequence.NewSequence[uint32]([]byte{0x1})
+		err := seq.InitVal(store, a)
+		require.NoError(t, err)
+		n := seq.NextVal(store)
+		require.Equal(t, n, uint32(a+1))
+	})
+
+}
+
 func TestSequenceU256(t *testing.T) {
 	ctx := NewMockContext()
 	store := ctx.KVStore(storetypes.NewKVStoreKey("test"))

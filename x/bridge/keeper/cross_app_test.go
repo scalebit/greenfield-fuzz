@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"fmt"
 	"math/big"
+	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -44,6 +45,51 @@ func (s *TestSuite) TestTransferOutAck() {
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
 	result = transferOutApp.ExecuteAckPackage(s.ctx, &sdk.CrossChainAppContext{Sequence: 1}, packageBytes)
 	s.Require().Nil(err, result.Err, "error should be nil")
+}
+
+func FuzzTransferOutAck(f *testing.F) {
+	s := &TestSuite{}
+
+	f.Add(int64(1))
+
+	f.Fuzz(func(t *testing.T, a int64) {
+		s.SetT(t)
+		s.SetupTest()
+		refundPackage := types.TransferOutRefundPackage{
+			RefundAmount:  big.NewInt(a),
+			RefundAddress: sdk.AccAddress("refundAddress"),
+			RefundReason:  1,
+		}
+
+		packageBytes, err := refundPackage.Serialize()
+		// s.Require().Nil(err, "encode refund package error")
+		if err != nil {
+			t.Skip()
+		}
+
+		transferOutApp := keeper.NewTransferOutApp(*s.bridgeKeeper)
+
+		s.stakingKeeper.EXPECT().BondDenom(gomock.Any()).Return("BNB").AnyTimes()
+
+		// empty payload
+		result := transferOutApp.ExecuteAckPackage(s.ctx, &sdk.CrossChainAppContext{Sequence: 1}, nil)
+		s.Require().Nil(result.Err, "result should be nil")
+		s.Require().Nil(result.Payload, "result should be nil")
+
+		// wrong payload
+		result = transferOutApp.ExecuteAckPackage(s.ctx, &sdk.CrossChainAppContext{Sequence: 1}, []byte{1})
+		s.Require().Contains(result.Err.Error(), "deserialize transfer out refund package failed")
+
+		// send coins failed
+		s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("test send coins error")).Times(1)
+		result = transferOutApp.ExecuteAckPackage(s.ctx, &sdk.CrossChainAppContext{Sequence: 1}, packageBytes)
+		s.Require().Contains(result.Err.Error(), "test send coins error")
+
+		// success case
+		s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+		result = transferOutApp.ExecuteAckPackage(s.ctx, &sdk.CrossChainAppContext{Sequence: 1}, packageBytes)
+		s.Require().Nil(err, result.Err, "error should be nil")
+	})
 }
 
 func (s *TestSuite) TestTransferOutSynAndFailAck() {
