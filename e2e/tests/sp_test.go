@@ -157,6 +157,27 @@ func (s *StorageProviderTestSuite) TestDeposit() {
 	s.Require().Equal(txRes.Code, uint32(0))
 }
 
+func FuzzDeposit(f *testing.F) {
+	f.Add(int64(10000))
+	f.Fuzz(func(t *testing.T, a int64) {
+		s := &StorageProviderTestSuite{}
+		s.SetT(t)
+		s.SetupSuite()
+		sp := s.BaseSuite.PickStorageProvider()
+
+		deposit := sdk.Coin{
+			Denom:  s.Config.Denom,
+			Amount: types.NewIntFromInt64WithDecimal(a, types.DecimalBNB),
+		}
+
+		msgDeposit := sptypes.NewMsgDeposit(
+			sp.FundingKey.GetAddr(), sp.OperatorKey.GetAddr(), deposit)
+		txRes := s.SendTxBlock(sp.FundingKey, msgDeposit)
+		s.Require().Equal(txRes.Code, uint32(0))
+	})
+
+}
+
 func (s *StorageProviderTestSuite) TestUpdateSpStoragePrice() {
 	ctx := context.Background()
 	defer s.revertParams()
