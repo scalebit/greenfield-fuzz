@@ -44,3 +44,31 @@ func TestPaymentAccountCount(t *testing.T) {
 	resp3 := keeper.GetAllPaymentAccountCount(ctx)
 	require.True(t, len(resp3) == 2)
 }
+
+func FuzzPaymentAccountCount(f *testing.F) {
+	f.Add(uint64(1))
+	f.Fuzz(func(t *testing.T, a uint64) {
+		keeper, ctx, _ := makePaymentKeeper(t)
+
+		owner1 := sample.RandAccAddress()
+		paymentCount1 := &types.PaymentAccountCount{
+			Owner: owner1.String(),
+			Count: a,
+		}
+		// set
+		keeper.SetPaymentAccountCount(ctx, paymentCount1)
+
+		// get
+		resp1, _ := keeper.GetPaymentAccountCount(ctx, owner1)
+		require.True(t, resp1.Owner == owner1.String())
+		require.True(t, resp1.Count == paymentCount1.Count)
+
+		_, found := keeper.GetPaymentAccountCount(ctx, sample.RandAccAddress())
+		require.True(t, !found)
+
+		// get all
+		resp3 := keeper.GetAllPaymentAccountCount(ctx)
+		require.True(t, len(resp3) == 1)
+	})
+
+}

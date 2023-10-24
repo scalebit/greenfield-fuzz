@@ -50,3 +50,36 @@ func TestPaymentAccount(t *testing.T) {
 	resp3 := keeper.GetAllPaymentAccount(ctx)
 	require.True(t, len(resp3) == 2)
 }
+
+func FuzzPaymentAccount(f *testing.F) {
+	f.Add(2)
+	f.Fuzz(func(t *testing.T, a int) {
+		keeper, ctx, _ := makePaymentKeeper(t)
+		if a < 0 {
+			a = -a
+		}
+		for i := 0; i < a; i++ {
+			owner1 := sample.RandAccAddress()
+			addr1 := sample.RandAccAddress()
+			paymentAccount1 := &types.PaymentAccount{
+				Owner:      owner1.String(),
+				Addr:       addr1.String(),
+				Refundable: true,
+			}
+			keeper.SetPaymentAccount(ctx, paymentAccount1)
+
+			resp1, _ := keeper.GetPaymentAccount(ctx, addr1)
+			require.True(t, resp1.Owner == owner1.String())
+			require.True(t, resp1.Addr == addr1.String())
+			require.True(t, resp1.Refundable == paymentAccount1.Refundable)
+		}
+
+		_, found := keeper.GetPaymentAccount(ctx, sample.RandAccAddress())
+		require.True(t, !found)
+
+		// get all
+		resp3 := keeper.GetAllPaymentAccount(ctx)
+		require.True(t, len(resp3) == a)
+
+	})
+}
