@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -39,4 +40,32 @@ func TestAutoSettleRecord(t *testing.T) {
 	require.True(t, len(records) == 1)
 	require.True(t, records[0].Addr == addr1.String())
 	require.True(t, records[0].Timestamp == 110)
+}
+
+func FuzzAutoSettleRecord(f *testing.F) {
+	f.Add(int64(100))
+	f.Fuzz(func(t *testing.T, a int64) {
+		keeper, ctx, _ := makePaymentKeeper(t)
+
+		addr1 := sample.RandAccAddress()
+		record1 := &types.AutoSettleRecord{
+			Addr:      addr1.String(),
+			Timestamp: a,
+		}
+
+		// set
+		keeper.SetAutoSettleRecord(ctx, record1)
+
+		rand.Seed(a)
+		n := rand.Int63()
+		// update to new time
+		keeper.UpdateAutoSettleRecord(ctx, addr1, record1.Timestamp, n)
+
+		// get all
+		_ = keeper.GetAllAutoSettleRecord(ctx)
+		// require.True(t, len(records) == 1)
+		// require.True(t, records[0].Addr == addr1.String())
+		// require.True(t, records[0].Timestamp == 110)
+	})
+
 }
