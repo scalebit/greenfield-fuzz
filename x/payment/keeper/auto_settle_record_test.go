@@ -62,10 +62,18 @@ func FuzzAutoSettleRecord(f *testing.F) {
 		keeper.UpdateAutoSettleRecord(ctx, addr1, record1.Timestamp, n)
 
 		// get all
-		_ = keeper.GetAllAutoSettleRecord(ctx)
-		// require.True(t, len(records) == 1)
-		// require.True(t, records[0].Addr == addr1.String())
-		// require.True(t, records[0].Timestamp == 110)
+		records := keeper.GetAllAutoSettleRecord(ctx)
+		// t.Log(len(records))
+		// t.Log(records[0])
+		// if len(records) > 1 {
+		// 	t.Log(records[1])
+		// }
+		if a != 0 {
+			require.True(t, len(records) == 1)
+			require.True(t, records[0].Addr == addr1.String())
+			require.True(t, records[0].Timestamp == n)
+		}
+
 	})
 
 }
