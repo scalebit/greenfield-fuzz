@@ -50,6 +50,50 @@ func TestApplyFlowChanges(t *testing.T) {
 	t.Logf("sp stream record: %+v", spStreamRecord)
 }
 
+func FuzzApplyFlowChanges(f *testing.F) {
+	f.Add(int64(100)) //crash 664
+	f.Fuzz(func(t *testing.T, a int64) {
+		if a < 0 {
+			a = -a
+		}
+		keeper, ctx, _ := makePaymentKeeper(t)
+		ctx = ctx.WithBlockTime(time.Unix(100, 0))
+		user := sample.RandAccAddress()
+		rate := sdkmath.NewInt(a)
+		sp := sample.RandAccAddress()
+		userInitBalance := sdkmath.NewInt(1e10)
+		flowChanges := []types.StreamRecordChange{
+			*types.NewDefaultStreamRecordChangeWithAddr(user).WithStaticBalanceChange(userInitBalance).WithRateChange(rate.Neg()),
+			*types.NewDefaultStreamRecordChangeWithAddr(sp).WithRateChange(rate),
+		}
+		sr := &types.StreamRecord{Account: user.String(),
+			OutFlowCount:      1,
+			StaticBalance:     sdkmath.ZeroInt(),
+			BufferBalance:     sdkmath.ZeroInt(),
+			LockBalance:       sdkmath.ZeroInt(),
+			NetflowRate:       sdkmath.ZeroInt(),
+			FrozenNetflowRate: sdkmath.ZeroInt(),
+		}
+		keeper.SetStreamRecord(ctx, sr)
+		t.Log(123)
+		err := keeper.ApplyStreamRecordChanges(ctx, flowChanges)
+		t.Log(err == nil)
+		require.NoError(t, err)
+		userStreamRecord, found := keeper.GetStreamRecord(ctx, user)
+		require.True(t, found)
+		require.Equal(t, userStreamRecord.StaticBalance.Add(userStreamRecord.BufferBalance), userInitBalance)
+		require.Equal(t, userStreamRecord.NetflowRate, rate.Neg())
+		t.Logf("user stream record: %+v", userStreamRecord)
+		spStreamRecord, found := keeper.GetStreamRecord(ctx, sp)
+		require.Equal(t, spStreamRecord.NetflowRate, rate)
+		require.Equal(t, spStreamRecord.StaticBalance, sdkmath.ZeroInt())
+		require.Equal(t, spStreamRecord.BufferBalance, sdkmath.ZeroInt())
+		require.True(t, found)
+		t.Logf("sp stream record: %+v", spStreamRecord)
+	})
+
+}
+
 func TestMergeStreamRecordChanges(t *testing.T) {
 	users := []sdk.AccAddress{
 		sample.RandAccAddress(),
@@ -78,6 +122,49 @@ func TestMergeStreamRecordChanges(t *testing.T) {
 		*types.NewDefaultStreamRecordChangeWithAddr(user1).WithRateChange(sdkmath.NewInt(200)).WithStaticBalanceChange(sdkmath.NewInt(2e10)),
 		*types.NewDefaultStreamRecordChangeWithAddr(user2).WithRateChange(sdkmath.NewInt(200)).WithStaticBalanceChange(sdkmath.NewInt(2e10)),
 		*types.NewDefaultStreamRecordChangeWithAddr(user3).WithRateChange(sdkmath.NewInt(200)).WithStaticBalanceChange(sdkmath.NewInt(2e10)),
+	})
+}
+
+func FuzzMergeStreamRecordChanges(f *testing.F) {
+	f.Add(1)
+	f.Fuzz(func(t *testing.T, a int) {
+		if a < 0 {
+			a = -a
+		}
+		users := []sdk.AccAddress{}
+		for i := 0; i < a; i++ {
+			users = append(users, sample.RandAccAddress())
+		}
+
+		sort.Slice(users, func(i, j int) bool {
+			return users[i].String() < users[j].String()
+		})
+
+		base := []types.StreamRecordChange{}
+		count := 0
+		count2 := 0
+		for i := 0; i < a; i++ {
+			if a%3 == 0 {
+				count++
+				base = append(base, *types.NewDefaultStreamRecordChangeWithAddr(users[i]).WithRateChange(sdkmath.NewInt(200)).WithStaticBalanceChange(sdkmath.NewInt(2e10)))
+			}
+
+		}
+		changes := []types.StreamRecordChange{}
+		for i := 0; i < a; i++ {
+			if a%2 == 0 {
+				count++
+				changes = append(changes, *types.NewDefaultStreamRecordChangeWithAddr(users[i]).WithRateChange(sdkmath.NewInt(200)).WithStaticBalanceChange(sdkmath.NewInt(2e10)))
+			}
+			if a%2 == 0 && a%3 == 0 {
+				count2++
+			}
+		}
+		k, _, _ := makePaymentKeeper(t)
+		merged := k.MergeStreamRecordChanges(append(base, changes...))
+		t.Logf("merged: %+v", merged)
+		require.Equal(t, len(merged), count-count2)
+
 	})
 }
 
