@@ -36,6 +36,32 @@ func TestTryResumeStreamRecord_InResumingOrSettling(t *testing.T) {
 	require.ErrorContains(t, err, "is resuming")
 }
 
+func FuzzTryResumeStreamRecord_InResumingOrSettling(f *testing.F) {
+	f.Add(int64(100))
+	f.Fuzz(func(t *testing.T, a int64) {
+		keeper, ctx, _ := makePaymentKeeper(t)
+		ctx = ctx.WithBlockTime(time.Now())
+
+		account := sample.RandAccAddress()
+		// deposit to a resuming account is not allowed
+		streamRecord := &types.StreamRecord{
+			Account:     account.String(),
+			Status:      types.STREAM_ACCOUNT_STATUS_FROZEN,
+			NetflowRate: sdkmath.NewInt(-100),
+		}
+
+		keeper.SetAutoResumeRecord(ctx, &types.AutoResumeRecord{
+			Timestamp: ctx.BlockTime().Unix() + 10,
+			Addr:      account.String(),
+		})
+
+		deposit := sdkmath.NewInt(a)
+		err := keeper.TryResumeStreamRecord(ctx, streamRecord, deposit)
+		require.ErrorContains(t, err, "is resuming")
+	})
+
+}
+
 func TestTryResumeStreamRecord_ResumeInOneBlock(t *testing.T) {
 	keeper, ctx, _ := makePaymentKeeper(t)
 	ctx = ctx.WithBlockTime(time.Now())

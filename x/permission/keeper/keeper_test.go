@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"math/rand"
+	"testing"
 	"time"
 
 	"cosmossdk.io/math"
@@ -123,6 +124,97 @@ func (s *TestSuite) TestPruneAccountPolicies() {
 	}
 }
 
+func FuzzPruneAccountPolicies(f *testing.F) {
+	f.Add(1)
+	f.Fuzz(func(t *testing.T, a int) {
+		s := &TestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		now := s.ctx.BlockTime()
+		oneDayAfter := now.AddDate(0, 0, 1)
+
+		resourceIds := []math.Uint{math.NewUint(rand.Uint64()), math.NewUint(rand.Uint64()), math.NewUint(rand.Uint64())}
+		policyIds := make([]math.Uint, 3)
+
+		// policy without expiry
+		policy := types.Policy{
+			Principal: &types.Principal{
+				Type:  types.PRINCIPAL_TYPE_GNFD_ACCOUNT,
+				Value: sample.RandAccAddressHex(),
+			},
+			ResourceType:   1,
+			ResourceId:     resourceIds[0],
+			Statements:     nil,
+			ExpirationTime: nil,
+		}
+		policyId, err := s.permissionKeeper.PutPolicy(s.ctx, &policy)
+		s.NoError(err)
+		policyIds[0] = policyId
+
+		policy.ResourceId = resourceIds[2]
+		policyId, err = s.permissionKeeper.PutPolicy(s.ctx, &policy)
+		s.NoError(err)
+		policyIds[2] = policyId
+
+		// policy with expiry
+		policy.ResourceId = resourceIds[1]
+		policy.ExpirationTime = &oneDayAfter
+		policyId, err = s.permissionKeeper.PutPolicy(s.ctx, &policy)
+		s.NoError(err)
+		policyIds[1] = policyId
+
+		if a < 0 {
+			a = -a
+		}
+		a = a % 3
+
+		testCases := []struct {
+			name       string
+			ctx        sdk.Context
+			resourceId math.Uint
+			policyId   math.Uint
+			found      bool
+			preRun     func()
+			postRun    func()
+		}{
+			{
+				name:       "update from expiry to no expiry and no prune",
+				ctx:        s.ctx.WithBlockTime(oneDayAfter.Add(time.Second)),
+				resourceId: resourceIds[a],
+				policyId:   policyIds[a],
+				found:      true,
+				preRun: func() {
+					oldPolicy, found := s.permissionKeeper.GetPolicyByID(s.ctx, policyIds[a])
+					s.True(found)
+					oldPolicy.ExpirationTime = nil
+					newId, err := s.permissionKeeper.PutPolicy(s.ctx, oldPolicy)
+					s.NoError(err)
+					s.Equal(policyIds[a], newId)
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			tc := tc
+			s.Run(tc.name, func() {
+				if tc.preRun != nil {
+					tc.preRun()
+				}
+				_, found := s.permissionKeeper.GetPolicyByID(tc.ctx, tc.policyId)
+				s.True(found)
+				s.permissionKeeper.RemoveExpiredPolicies(tc.ctx)
+				_, found = s.permissionKeeper.GetPolicyByID(tc.ctx, tc.policyId)
+				s.Equal(tc.found, found)
+				if tc.postRun != nil {
+					tc.postRun()
+				}
+			})
+		}
+
+	})
+}
+
 func (s *TestSuite) TestPruneGroupPolicies() {
 	now := s.ctx.BlockTime()
 	oneDayAfter := now.AddDate(0, 0, 1)
@@ -233,4 +325,95 @@ func (s *TestSuite) TestPruneGroupPolicies() {
 			}
 		})
 	}
+}
+
+func FuzzPruneGroupPolicies(f *testing.F) {
+	f.Add(0)
+	f.Fuzz(func(t *testing.T, a int) {
+		s := &TestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		now := s.ctx.BlockTime()
+		oneDayAfter := now.AddDate(0, 0, 1)
+
+		resourceIds := []math.Uint{math.NewUint(rand.Uint64()), math.NewUint(rand.Uint64()), math.NewUint(rand.Uint64())}
+		policyIds := make([]math.Uint, 3)
+
+		// member without expiry
+		policy := types.Policy{
+			Principal: &types.Principal{
+				Type:  types.PRINCIPAL_TYPE_GNFD_GROUP,
+				Value: sample.RandAccAddressHex(),
+			},
+			ResourceType:   1,
+			ResourceId:     resourceIds[0],
+			Statements:     nil,
+			ExpirationTime: nil,
+		}
+		policyId, err := s.permissionKeeper.PutPolicy(s.ctx, &policy)
+		s.NoError(err)
+		policyIds[0] = policyId
+
+		policy.ResourceId = resourceIds[2]
+		policyId, err = s.permissionKeeper.PutPolicy(s.ctx, &policy)
+		s.NoError(err)
+		policyIds[2] = policyId
+
+		// member with expiry
+		policy.ResourceId = resourceIds[1]
+		policy.ExpirationTime = &oneDayAfter
+		policyId, err = s.permissionKeeper.PutPolicy(s.ctx, &policy)
+		s.NoError(err)
+		policyIds[1] = policyId
+
+		if a < 0 {
+			a = -a
+		}
+		a = a % 3
+
+		testCases := []struct {
+			name       string
+			ctx        sdk.Context
+			resourceId math.Uint
+			policyId   math.Uint
+			found      bool
+			preRun     func()
+			postRun    func()
+		}{
+
+			{
+				name:       "update from expiry to no expiry and no prune",
+				ctx:        s.ctx.WithBlockTime(oneDayAfter.Add(time.Second)),
+				resourceId: resourceIds[a],
+				policyId:   policyIds[a],
+				found:      true,
+				preRun: func() {
+					oldPolicy, found := s.permissionKeeper.GetPolicyByID(s.ctx, policyIds[a])
+					s.True(found)
+					oldPolicy.ExpirationTime = nil
+					newId, err := s.permissionKeeper.PutPolicy(s.ctx, oldPolicy)
+					s.NoError(err)
+					s.Equal(policyIds[a], newId)
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			tc := tc
+			s.Run(tc.name, func() {
+				if tc.preRun != nil {
+					tc.preRun()
+				}
+				_, found := s.permissionKeeper.GetPolicyByID(tc.ctx, tc.policyId)
+				s.True(found)
+				s.permissionKeeper.RemoveExpiredPolicies(tc.ctx)
+				_, found = s.permissionKeeper.GetPolicyByID(tc.ctx, tc.policyId)
+				s.Equal(tc.found, found)
+				if tc.postRun != nil {
+					tc.postRun()
+				}
+			})
+		}
+	})
 }
