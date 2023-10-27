@@ -2,6 +2,7 @@ package types_test
 
 import (
 	"math/rand"
+	"regexp"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	types2 "github.com/bnb-chain/greenfield/types"
 	"github.com/bnb-chain/greenfield/types/common"
 	"github.com/bnb-chain/greenfield/types/resource"
+	"github.com/bnb-chain/greenfield/types/s3util"
 	"github.com/bnb-chain/greenfield/x/permission/types"
 )
 
@@ -530,7 +532,7 @@ func TestPolicy_SubResource(t *testing.T) {
 }
 
 // func FuzzPolicy_SubResource(f *testing.F) {
-// 	f.Add("1")
+// 	f.Add("\"(\"") //crash "("
 // 	f.Fuzz(func(t *testing.T, a string) {
 // 		bucketName := storage.GenRandomBucketName()
 // 		tests := []struct {
@@ -586,9 +588,29 @@ func TestPolicy_SubResource(t *testing.T) {
 // 						},
 // 					},
 // 				}
+
+// 				t.Log(tt.operateResource)
+// 				t.Log(tt.operateAction)
 // 				_, _ = policy.Eval(tt.operateAction, time.Now(), &types.VerifyOptions{Resource: tt.operateResource})
+// 				t.Log(123)
 // 				// require.Equal(t, effect, tt.expectEffect)
 // 			})
 // 		}
 // 	})
 // }
+
+func FuzzCheckValidBucketName(f *testing.F) {
+	f.Add("a\x28-123b")
+	// f.Add("ab123-a.a-1")
+	f.Fuzz(func(t *testing.T, a string) {
+		err := s3util.CheckValidBucketName(a)
+		t.Log(err)
+		if err != nil {
+			return
+		}
+		_, err = regexp.Compile(a)
+		require.NoError(t, err)
+
+	})
+
+}

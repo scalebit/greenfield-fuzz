@@ -2,6 +2,8 @@ package keeper_test
 
 import (
 	"fmt"
+	"math/rand"
+	"testing"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -27,6 +29,29 @@ func (s *KeeperTestSuite) TestSetGetStorageProvider() {
 		fmt.Printf("no such sp: %s", spAcc)
 	}
 	require.EqualValues(s.T(), found, true)
+}
+
+func FuzzSetGetStorageProvider(f *testing.F) {
+	f.Add(uint32(100))
+	f.Fuzz(func(t *testing.T, a uint32) {
+		s := &KeeperTestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		keeper := s.spKeeper
+		ctx := s.ctx
+		sp := &types.StorageProvider{Id: a}
+		spAccStr := sample.RandAccAddressHex()
+		spAcc := sdk.MustAccAddressFromHex(spAccStr)
+		sp.OperatorAddress = spAcc.String()
+
+		keeper.SetStorageProvider(ctx, sp)
+		_, found := keeper.GetStorageProvider(ctx, a)
+		if !found {
+			fmt.Printf("no such sp: %s", spAcc)
+		}
+		require.EqualValues(s.T(), found, true)
+	})
 }
 
 // TestStorageProviderBasics tests GetStorageProviderByOperatorAddr, GetStorageProviderByFundingAddr,
@@ -92,6 +117,74 @@ func (s *KeeperTestSuite) TestStorageProviderBasics() {
 	require.EqualValues(s.T(), found, true)
 }
 
+func FuzzStorageProviderBasics(f *testing.F) {
+	f.Add(uint32(100))
+	f.Fuzz(func(t *testing.T, a uint32) {
+		s := &KeeperTestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		k := s.spKeeper
+		ctx := s.ctx
+		spAccStr := sample.RandAccAddressHex()
+		spAcc := sdk.MustAccAddressFromHex(spAccStr)
+
+		fundingAccStr := sample.RandAccAddressHex()
+		fundingAcc := sdk.MustAccAddressFromHex(fundingAccStr)
+
+		sealAccStr := sample.RandAccAddressHex()
+		sealAcc := sdk.MustAccAddressFromHex(sealAccStr)
+
+		approvalAccStr := sample.RandAccAddressHex()
+		approvalAcc := sdk.MustAccAddressFromHex(approvalAccStr)
+
+		blsPubKey := sample.RandBlsPubKey()
+		sp := &types.StorageProvider{
+			Id:              a,
+			OperatorAddress: spAcc.String(),
+			FundingAddress:  fundingAcc.String(),
+			SealAddress:     sealAcc.String(),
+			ApprovalAddress: approvalAcc.String(),
+			BlsKey:          blsPubKey,
+		}
+
+		k.SetStorageProvider(ctx, sp)
+		_, found := k.GetStorageProvider(ctx, a)
+		if !found {
+			fmt.Printf("no such sp: %s", spAcc)
+		}
+		require.EqualValues(s.T(), found, true)
+
+		k.SetStorageProviderByFundingAddr(ctx, sp)
+		_, found = k.GetStorageProviderByFundingAddr(ctx, fundingAcc)
+		if !found {
+			fmt.Printf("no such sp: %s", spAcc)
+		}
+		require.EqualValues(s.T(), found, true)
+
+		k.SetStorageProviderBySealAddr(ctx, sp)
+		_, found = k.GetStorageProviderBySealAddr(ctx, sealAcc)
+		if !found {
+			fmt.Printf("no such sp: %s", spAcc)
+		}
+		require.EqualValues(s.T(), found, true)
+
+		k.SetStorageProviderByApprovalAddr(ctx, sp)
+		_, found = k.GetStorageProviderByApprovalAddr(ctx, approvalAcc)
+		if !found {
+			fmt.Printf("no such sp: %s", spAcc)
+		}
+		require.EqualValues(s.T(), found, true)
+
+		k.SetStorageProviderByBlsKey(ctx, sp)
+		_, found = k.GetStorageProviderByBlsKey(ctx, blsPubKey)
+		if !found {
+			fmt.Printf("no such sp: %s", spAcc)
+		}
+		require.EqualValues(s.T(), found, true)
+	})
+}
+
 func (s *KeeperTestSuite) TestSlashBasic() {
 	// mock
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
@@ -141,4 +234,69 @@ func (s *KeeperTestSuite) TestSlashBasic() {
 	require.True(s.T(), found)
 	s.T().Logf("%s", spAfterSlash.TotalDeposit.String())
 	require.True(s.T(), spAfterSlash.TotalDeposit.Equal(math.NewIntWithDecimal(2000, types2.DecimalBNB)))
+}
+
+func FuzzSlashBasic(f *testing.F) {
+	f.Add(int64(2010))
+	f.Fuzz(func(t *testing.T, a int64) {
+		s := &KeeperTestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		k := s.spKeeper
+		ctx := s.ctx
+		spAccStr := sample.RandAccAddressHex()
+		spAcc := sdk.MustAccAddressFromHex(spAccStr)
+
+		fundingAccStr := sample.RandAccAddressHex()
+		fundingAcc := sdk.MustAccAddressFromHex(fundingAccStr)
+
+		sealAccStr := sample.RandAccAddressHex()
+		sealAcc := sdk.MustAccAddressFromHex(sealAccStr)
+
+		approvalAccStr := sample.RandAccAddressHex()
+		approvalAcc := sdk.MustAccAddressFromHex(approvalAccStr)
+
+		blsPubKey := sample.RandBlsPubKey()
+
+		//fuzz sp_id
+		rand.Seed(a)
+		sp_id := rand.Uint32()
+
+		sp := &types.StorageProvider{
+			Id:              sp_id,
+			OperatorAddress: spAcc.String(),
+			FundingAddress:  fundingAcc.String(),
+			SealAddress:     sealAcc.String(),
+			ApprovalAddress: approvalAcc.String(),
+			BlsKey:          blsPubKey,
+			TotalDeposit:    math.NewIntWithDecimal(a, types2.DecimalBNB),
+		}
+
+		k.SetStorageProvider(ctx, sp)
+		_, found := k.GetStorageProvider(ctx, sp_id)
+		if !found {
+			fmt.Printf("no such sp: %s", spAcc)
+		}
+		require.EqualValues(s.T(), found, true)
+
+		//fuzz num
+		num := rand.Intn(int(a))
+
+		rewardInfo := types.RewardInfo{
+			Address: sample.RandAccAddressHex(),
+			Amount:  sdk.NewCoin(types2.Denom, math.NewIntWithDecimal(int64(num), types2.DecimalBNB)),
+		}
+
+		err := k.Slash(ctx, sp.Id, []types.RewardInfo{rewardInfo})
+		require.NoError(s.T(), err)
+
+		spAfterSlash, found := k.GetStorageProvider(ctx, sp_id)
+		require.True(s.T(), found)
+		s.T().Logf("%s", spAfterSlash.TotalDeposit.String())
+		require.True(s.T(), spAfterSlash.TotalDeposit.Equal(math.NewIntWithDecimal(a-int64(num), types2.DecimalBNB)))
+
+	})
 }

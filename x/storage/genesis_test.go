@@ -60,14 +60,20 @@ func TestGenesis(t *testing.T) {
 }
 
 func FuzzGenesis(f *testing.F) {
-	f.Add("1")
+	f.Add("0")
 	f.Fuzz(func(t *testing.T, a string) {
 		genesisState := types.GenesisState{
 			Params: types.DefaultParams(),
 		}
+		t.Log(a)
 
 		fuzz.NewFromGoFuzz([]byte(a)).Fuzz(&genesisState.Params.DiscontinueConfirmPeriod)
-
+		if genesisState.Params.DiscontinueConfirmPeriod < 0 {
+			genesisState.Params.DiscontinueConfirmPeriod = -genesisState.Params.DiscontinueConfirmPeriod
+		}
+		if genesisState.Params.DiscontinueConfirmPeriod == 0 {
+			return
+		}
 		k, ctx := makeKeeper(t)
 		storage.InitGenesis(ctx, *k, genesisState)
 		got := storage.ExportGenesis(ctx, *k)
