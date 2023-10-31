@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"fmt"
 	"math/big"
+	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/golang/mock/gomock"
@@ -50,6 +51,54 @@ func (s *TestSuite) TestSynDeleteBucket() {
 	storageKeeper.EXPECT().DeleteBucket(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	res = app.ExecuteSynPackage(s.ctx, &sdk.CrossChainAppContext{}, serializedSynPackage)
 	s.Require().NoError(res.Err)
+}
+
+func FuzzSynDeleteBucket(f *testing.F) {
+	f.Add("bucket")
+	f.Fuzz(func(t *testing.T, a string) {
+		s := &TestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		ctrl := gomock.NewController(s.T())
+		storageKeeper := types.NewMockStorageKeeper(ctrl)
+		storageKeeper.EXPECT().Logger(gomock.Any()).Return(s.ctx.Logger()).AnyTimes()
+
+		app := keeper.NewBucketApp(storageKeeper)
+		deleteSynPackage := types.DeleteBucketSynPackage{
+			Operator:  sample.RandAccAddress(),
+			Id:        big.NewInt(10),
+			ExtraData: []byte("extra data"),
+		}
+
+		serializedSynPackage := deleteSynPackage.MustSerialize()
+		serializedSynPackage = append([]byte{types.OperationDeleteBucket}, serializedSynPackage...)
+
+		storageKeeper.EXPECT().GetSourceTypeByChainId(gomock.Any(), gomock.Any()).Return(types.SOURCE_TYPE_BSC_CROSS_CHAIN, nil).AnyTimes()
+
+		// case 1: bucket not found
+		storageKeeper.EXPECT().GetBucketInfoById(gomock.Any(), gomock.Any()).Return(nil, false)
+		res := app.ExecuteSynPackage(s.ctx, &sdk.CrossChainAppContext{}, serializedSynPackage)
+		s.Require().ErrorIs(res.Err, types.ErrNoSuchBucket)
+
+		// case 2: delete bucket error
+		storageKeeper.EXPECT().GetBucketInfoById(gomock.Any(), gomock.Any()).Return(&types.BucketInfo{
+			BucketName: a,
+		}, true)
+		storageKeeper.EXPECT().DeleteBucket(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("delete error"))
+		res = app.ExecuteSynPackage(s.ctx, &sdk.CrossChainAppContext{}, serializedSynPackage)
+		s.Require().ErrorContains(res.Err, "delete error")
+
+		// case 3: delete bucket success
+		storageKeeper.EXPECT().GetBucketInfoById(gomock.Any(), gomock.Any()).Return(&types.BucketInfo{
+			BucketName: a,
+			Id:         sdk.NewUint(10),
+		}, true)
+		storageKeeper.EXPECT().DeleteBucket(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+		res = app.ExecuteSynPackage(s.ctx, &sdk.CrossChainAppContext{}, serializedSynPackage)
+		s.Require().NoError(res.Err)
+	})
+
 }
 
 func (s *TestSuite) TestSynCreateBucket() {

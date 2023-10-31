@@ -111,6 +111,45 @@ func (s *TestSuite) TestQueryGroupMembersExist() {
 	s.Require().Equal(exists, res.GetExists())
 }
 
+func FuzzQueryGroupMembersExist(f *testing.F) {
+	f.Add(3)
+	f.Fuzz(func(t *testing.T, a int) {
+		s := &TestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		if a < 0 {
+			a = -a
+		}
+		if a == 0 {
+			return
+		}
+
+		groupId := rand.Intn(1000)
+		members := make([]string, a)
+		exists := make(map[string]bool)
+		for i := 0; i < a; i++ {
+			members[i] = sample.RandAccAddressHex()
+			exist := rand.Intn(2)
+			if exist == 0 {
+				exists[members[i]] = false
+				s.permissionKeeper.EXPECT().GetGroupMember(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, false).Times(1)
+			} else {
+				exists[members[i]] = true
+				s.permissionKeeper.EXPECT().GetGroupMember(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, true).Times(1)
+			}
+		}
+
+		req := &types.QueryGroupMembersExistRequest{
+			GroupId: strconv.Itoa(groupId),
+			Members: members,
+		}
+		res, err := s.queryClient.QueryGroupMembersExist(context.Background(), req)
+		s.Require().NoError(err)
+		s.Require().Equal(exists, res.GetExists())
+	})
+}
+
 func (s *TestSuite) TestQueryGroupsExist() {
 	groupOwner := sample.RandAccAddress()
 	groupNames := make([]string, 3)

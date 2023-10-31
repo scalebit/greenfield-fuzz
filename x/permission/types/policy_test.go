@@ -15,7 +15,6 @@ import (
 	types2 "github.com/bnb-chain/greenfield/types"
 	"github.com/bnb-chain/greenfield/types/common"
 	"github.com/bnb-chain/greenfield/types/resource"
-	"github.com/bnb-chain/greenfield/types/s3util"
 	"github.com/bnb-chain/greenfield/x/permission/types"
 )
 
@@ -531,84 +530,84 @@ func TestPolicy_SubResource(t *testing.T) {
 	}
 }
 
-// func FuzzPolicy_SubResource(f *testing.F) {
-// 	f.Add("\"(\"") //crash "("
-// 	f.Fuzz(func(t *testing.T, a string) {
-// 		bucketName := storage.GenRandomBucketName()
-// 		tests := []struct {
-// 			name            string
-// 			policyAction    types.ActionType
-// 			policyEffect    types.Effect
-// 			policyResource  string
-// 			operateAction   types.ActionType
-// 			operateResource string
-// 			expectEffect    types.Effect
-// 		}{
-// 			{
-// 				name:            "policy_resource_matched_allow",
-// 				policyAction:    types.ACTION_GET_OBJECT,
-// 				policyEffect:    types.EFFECT_ALLOW,
-// 				policyResource:  types2.NewObjectGRN(bucketName, a).String(),
-// 				operateAction:   types.ACTION_GET_OBJECT,
-// 				operateResource: types2.NewObjectGRN(bucketName, "xxxx").String(),
-// 				expectEffect:    types.EFFECT_ALLOW,
-// 			},
-// 			{
-// 				name:            "policy_resource_matched_deny",
-// 				policyAction:    types.ACTION_GET_OBJECT,
-// 				policyEffect:    types.EFFECT_DENY,
-// 				policyResource:  types2.NewObjectGRN(bucketName, a).String(),
-// 				operateAction:   types.ACTION_GET_OBJECT,
-// 				operateResource: types2.NewObjectGRN(bucketName, "xxxx").String(),
-// 				expectEffect:    types.EFFECT_DENY,
-// 			},
-// 			{
-// 				name:            "policy_resource_not_matched",
-// 				policyAction:    types.ACTION_GET_OBJECT,
-// 				policyEffect:    types.EFFECT_ALLOW,
-// 				policyResource:  types2.NewObjectGRN(bucketName, a).String(),
-// 				operateAction:   types.ACTION_GET_OBJECT,
-// 				operateResource: types2.NewObjectGRN(bucketName, "1111").String(),
-// 				expectEffect:    types.EFFECT_UNSPECIFIED,
-// 			},
-// 		}
+func FuzzPolicy_SubResource(f *testing.F) {
+	f.Add("ab(12") //crash "("
+	f.Fuzz(func(t *testing.T, a string) {
+		bucketName := storage.GenRandomBucketName()
+		tests := []struct {
+			name            string
+			policyAction    types.ActionType
+			policyEffect    types.Effect
+			policyResource  string
+			operateAction   types.ActionType
+			operateResource string
+			expectEffect    types.Effect
+		}{
+			{
+				name:            "policy_resource_matched_allow",
+				policyAction:    types.ACTION_GET_OBJECT,
+				policyEffect:    types.EFFECT_ALLOW,
+				policyResource:  types2.NewObjectGRN(bucketName, a).String(),
+				operateAction:   types.ACTION_GET_OBJECT,
+				operateResource: types2.NewObjectGRN(bucketName, "xxxx").String(),
+				expectEffect:    types.EFFECT_ALLOW,
+			},
+			{
+				name:            "policy_resource_matched_deny",
+				policyAction:    types.ACTION_GET_OBJECT,
+				policyEffect:    types.EFFECT_DENY,
+				policyResource:  types2.NewObjectGRN(bucketName, a).String(),
+				operateAction:   types.ACTION_GET_OBJECT,
+				operateResource: types2.NewObjectGRN(bucketName, "xxxx").String(),
+				expectEffect:    types.EFFECT_DENY,
+			},
+			{
+				name:            "policy_resource_not_matched",
+				policyAction:    types.ACTION_GET_OBJECT,
+				policyEffect:    types.EFFECT_ALLOW,
+				policyResource:  types2.NewObjectGRN(bucketName, a).String(),
+				operateAction:   types.ACTION_GET_OBJECT,
+				operateResource: types2.NewObjectGRN(bucketName, "1111").String(),
+				expectEffect:    types.EFFECT_UNSPECIFIED,
+			},
+		}
 
-// 		for _, tt := range tests {
-// 			t.Run(tt.name, func(t *testing.T) {
-// 				user := sample.RandAccAddress()
-// 				policy := types.Policy{
-// 					Principal:    types.NewPrincipalWithAccount(user),
-// 					ResourceType: resource.RESOURCE_TYPE_BUCKET,
-// 					ResourceId:   math.OneUint(),
-// 					Statements: []*types.Statement{
-// 						{
-// 							Effect:    tt.policyEffect,
-// 							Actions:   []types.ActionType{tt.policyAction},
-// 							Resources: []string{tt.policyResource},
-// 						},
-// 					},
-// 				}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				user := sample.RandAccAddress()
+				policy := types.Policy{
+					Principal:    types.NewPrincipalWithAccount(user),
+					ResourceType: resource.RESOURCE_TYPE_BUCKET,
+					ResourceId:   math.OneUint(),
+					Statements: []*types.Statement{
+						{
+							Effect:    tt.policyEffect,
+							Actions:   []types.ActionType{tt.policyAction},
+							Resources: []string{tt.policyResource},
+						},
+					},
+				}
 
-// 				t.Log(tt.operateResource)
-// 				t.Log(tt.operateAction)
-// 				_, _ = policy.Eval(tt.operateAction, time.Now(), &types.VerifyOptions{Resource: tt.operateResource})
-// 				t.Log(123)
-// 				// require.Equal(t, effect, tt.expectEffect)
-// 			})
-// 		}
-// 	})
-// }
+				t.Log(tt.operateResource)
+				t.Log(tt.operateAction)
+				_, _ = policy.Eval(tt.operateAction, time.Now(), &types.VerifyOptions{Resource: tt.operateResource})
+				t.Log(123)
+				// require.Equal(t, effect, tt.expectEffect)
+			})
+		}
+	})
+}
 
 func FuzzCheckValidBucketName(f *testing.F) {
-	f.Add("a\x28-123b")
+	f.Add("ab(123")
 	// f.Add("ab123-a.a-1")
 	f.Fuzz(func(t *testing.T, a string) {
-		err := s3util.CheckValidBucketName(a)
-		t.Log(err)
-		if err != nil {
-			return
-		}
-		_, err = regexp.Compile(a)
+		// err := s3util.CheckValidBucketName(a)
+		// t.Log(err)
+		// if err != nil {
+		// 	return
+		// }
+		_, err := regexp.Compile(a)
 		require.NoError(t, err)
 
 	})

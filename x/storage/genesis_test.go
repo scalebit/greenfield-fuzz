@@ -69,7 +69,9 @@ func FuzzGenesis(f *testing.F) {
 
 		fuzz.NewFromGoFuzz([]byte(a)).Fuzz(&genesisState.Params.DiscontinueConfirmPeriod)
 		if genesisState.Params.DiscontinueConfirmPeriod < 0 {
+			t.Log(genesisState.Params.DiscontinueConfirmPeriod)
 			genesisState.Params.DiscontinueConfirmPeriod = -genesisState.Params.DiscontinueConfirmPeriod
+			t.Log(genesisState.Params.DiscontinueConfirmPeriod)
 		}
 		if genesisState.Params.DiscontinueConfirmPeriod == 0 {
 			return

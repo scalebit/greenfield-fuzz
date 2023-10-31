@@ -13,6 +13,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/golang/mock/gomock"
+	fuzz "github.com/google/gofuzz"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
@@ -97,6 +98,36 @@ func (s *TestSuite) TestSettleAndDistributeGVGFamily() {
 	require.NoError(s.T(), err)
 }
 
+func FuzzSettleAndDistributeGVGFamily(f *testing.F) {
+	f.Add(1)
+	f.Fuzz(func(t *testing.T, a int) {
+		s := &TestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		sp := &sptypes.StorageProvider{Id: 1, FundingAddress: sample.RandAccAddress().String()}
+		family := &types.GlobalVirtualGroupFamily{Id: 1, VirtualPaymentAddress: sample.RandAccAddress().String()}
+
+		s.paymentKeeper.EXPECT().QueryDynamicBalance(gomock.Any(), gomock.Any()).
+			Return(math.ZeroInt(), nil)
+		err := s.virtualgroupKeeper.SettleAndDistributeGVGFamily(s.ctx, sp, family)
+		require.NoError(s.T(), err)
+
+		s.paymentKeeper.EXPECT().QueryDynamicBalance(gomock.Any(), gomock.Any()).
+			Return(math.ZeroInt(), errors.New("error"))
+		err = s.virtualgroupKeeper.SettleAndDistributeGVGFamily(s.ctx, sp, family)
+		require.Error(s.T(), err)
+
+		s.paymentKeeper.EXPECT().QueryDynamicBalance(gomock.Any(), gomock.Any()).
+			Return(math.NewInt(1024), nil)
+		s.paymentKeeper.EXPECT().Withdraw(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil)
+		err = s.virtualgroupKeeper.SettleAndDistributeGVGFamily(s.ctx, sp, family)
+		require.NoError(s.T(), err)
+
+	})
+}
+
 func (s *TestSuite) TestSettleAndDistributeGVG() {
 	gvg := &types.GlobalVirtualGroup{Id: 1,
 		VirtualPaymentAddress: sample.RandAccAddress().String(),
@@ -122,4 +153,44 @@ func (s *TestSuite) TestSettleAndDistributeGVG() {
 		Return(sp, true).AnyTimes()
 	err = s.virtualgroupKeeper.SettleAndDistributeGVG(s.ctx, gvg)
 	require.NoError(s.T(), err)
+}
+
+func FuzzSettleAndDistributeGVG(f *testing.F) {
+	f.Add("")
+	f.Fuzz(func(t *testing.T, a string) {
+		s := &TestSuite{}
+		s.SetT(t)
+		s.SetupTest()
+
+		spIds := []uint32{}
+
+		fuzz.NewFromGoFuzz([]byte(a)).NilChance(0).NumElements(3, 3).Fuzz(&spIds)
+		// t.Log(spIds)
+
+		gvg := &types.GlobalVirtualGroup{Id: 1,
+			VirtualPaymentAddress: sample.RandAccAddress().String(),
+			SecondarySpIds:        spIds}
+
+		s.paymentKeeper.EXPECT().QueryDynamicBalance(gomock.Any(), gomock.Any()).
+			Return(math.ZeroInt(), nil)
+		err := s.virtualgroupKeeper.SettleAndDistributeGVG(s.ctx, gvg)
+		require.NoError(s.T(), err)
+
+		s.paymentKeeper.EXPECT().QueryDynamicBalance(gomock.Any(), gomock.Any()).
+			Return(math.ZeroInt(), errors.New("error"))
+		err = s.virtualgroupKeeper.SettleAndDistributeGVG(s.ctx, gvg)
+		require.Error(s.T(), err)
+
+		s.paymentKeeper.EXPECT().QueryDynamicBalance(gomock.Any(), gomock.Any()).
+			Return(math.NewInt(1024), nil).AnyTimes()
+		s.paymentKeeper.EXPECT().Withdraw(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil).AnyTimes()
+
+		sp := &sptypes.StorageProvider{Id: 1, FundingAddress: sample.RandAccAddress().String()}
+		s.spKeeper.EXPECT().GetStorageProvider(gomock.Any(), gomock.Any()).
+			Return(sp, true).AnyTimes()
+		err = s.virtualgroupKeeper.SettleAndDistributeGVG(s.ctx, gvg)
+		require.NoError(s.T(), err)
+
+	})
 }
