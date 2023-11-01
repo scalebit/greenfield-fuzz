@@ -424,6 +424,37 @@ func (s *StorageTestSuite) TestPOCSubResources() {
 		principal, []*types3.Statement{statement}, nil)
 	s.SendTxBlock(user, msgPutPolicy)
 
+	// Create Group
+	// testGroupName := "testGroup"
+	// msgCreateGroup := storagetypes.NewMsgCreateGroup(user.GetAddr(), testGroupName, "")
+	// s.SendTxBlock(user, msgCreateGroup)
+	// membersToAdd := []*storagetypes.MsgGroupMember{
+	// 	{Member: user.GetAddr().String()},
+	// 	{Member: user2.GetAddr().String()},
+	// }
+	// membersToDelete := []sdk.AccAddress{}
+	// msgUpdateGroupMember := storagetypes.NewMsgUpdateGroupMember(user.GetAddr(), user.GetAddr(), testGroupName, membersToAdd, membersToDelete)
+	// s.SendTxBlock(user, msgUpdateGroupMember)
+
+	// // Head Group
+	// headGroupRequest := storagetypes.QueryHeadGroupRequest{GroupOwner: user.GetAddr().String(), GroupName: testGroupName}
+	// headGroupResponse, err := s.Client.HeadGroup(ctx, &headGroupRequest)
+	// s.Require().NoError(err)
+	// s.Require().Equal(headGroupResponse.GroupInfo.GroupName, testGroupName)
+	// s.Require().True(user.GetAddr().Equals(sdk.MustAccAddressFromHex(headGroupResponse.GroupInfo.Owner)))
+	// s.T().Logf("GroupInfo: %s", headGroupResponse.GetGroupInfo().String())
+
+	// principal := types3.NewPrincipalWithGroupId(headGroupResponse.GroupInfo.Id)
+	// // Put bucket policy for group
+	// bucketStatement := &types3.Statement{
+	// 	Actions:   []types3.ActionType{types3.ACTION_DELETE_BUCKET},
+	// 	Effect:    types3.EFFECT_ALLOW,
+	// 	Resources: []string{types4.NewObjectGRN(bucketName, objectName).String()},
+	// }
+	// msgPutBucketPolicy := storagetypes.NewMsgPutPolicy(user.GetAddr(), types4.NewBucketGRN(bucketName).String(),
+	// 	principal, []*types3.Statement{bucketStatement}, nil)
+	// s.SendTxBlock(user, msgPutBucketPolicy)
+
 	// DeleteObject
 	msgDeleteObject := storagetypes.NewMsgDeleteObject(user2.GetAddr(), bucketName, objectName)
 	s.SendTxBlock(user2, msgDeleteObject)
