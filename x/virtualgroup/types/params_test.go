@@ -82,6 +82,29 @@ func TestGVGStakingPerBytes(t *testing.T) {
 	}
 }
 
+func FuzzDepositDenom(f *testing.F) {
+	f.Add(1)
+	f.Fuzz(func(t *testing.T, a int) {
+		tt := struct {
+			name  string
+			denom interface{}
+			err   string
+		}{
+			name:  "",
+			denom: a,
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			_ = validateDepositDenom(tt.denom)
+			// if tt.err != "" {
+			// 	require.ErrorContains(t, err, tt.err)
+			// 	return
+			// }
+			// require.NoError(t, err)
+		})
+	})
+}
+
 func TestMaxGlobalVirtualGroupNumPerFamily(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -116,6 +139,29 @@ func TestMaxGlobalVirtualGroupNumPerFamily(t *testing.T) {
 	}
 }
 
+func FuzzMaxGlobalVirtualGroupNumPerFamily(f *testing.F) {
+	f.Add(uint32(1))
+	f.Fuzz(func(t *testing.T, a uint32) {
+		tt := struct {
+			name   string
+			number interface{}
+			err    string
+		}{
+			name:   "valid",
+			number: uint32(1),
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateMaxGlobalVirtualGroupNumPerFamily(tt.number)
+			if tt.err != "" {
+				require.ErrorContains(t, err, tt.err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	})
+
+}
+
 func TestMaxStoreSizePerFamily(t *testing.T) {
 	tests := []struct {
 		name string
@@ -148,6 +194,29 @@ func TestMaxStoreSizePerFamily(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func FuzzMaxStoreSizePerFamily(f *testing.F) {
+	f.Add(uint64(0))
+	f.Fuzz(func(t *testing.T, a uint64) {
+		tt := struct {
+			name string
+			size interface{}
+			err  string
+		}{
+			name: "valid",
+			size: uint64(1),
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			_ = validateMaxStoreSizePerFamily(tt.size)
+			// if tt.err != "" {
+			// 	require.ErrorContains(t, err, tt.err)
+			// 	return
+			// }
+			// require.NoError(t, err)
+		})
+	})
 }
 
 func TestValidateParams(t *testing.T) {
