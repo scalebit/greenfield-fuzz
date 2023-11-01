@@ -27,6 +27,8 @@ import (
 	"github.com/bnb-chain/greenfield/sdk/keys"
 	"github.com/bnb-chain/greenfield/sdk/types"
 	storageutils "github.com/bnb-chain/greenfield/testutil/storage"
+	types4 "github.com/bnb-chain/greenfield/types"
+	types3 "github.com/bnb-chain/greenfield/x/permission/types"
 	sptypes "github.com/bnb-chain/greenfield/x/sp/types"
 	storagetypes "github.com/bnb-chain/greenfield/x/storage/types"
 	types2 "github.com/bnb-chain/greenfield/x/virtualgroup/types"
@@ -273,14 +275,14 @@ func (s *StorageTestSuite) TestCreateObject() {
 	s.SendTxBlock(user, msgDeleteBucket)
 }
 
-func (s *StorageTestSuite) TestCreateObject2() {
+func (s *StorageTestSuite) TestPOCSubResources() {
 	var err error
 	// CreateBucket
 	sp := s.BaseSuite.PickStorageProvider()
 	gvg, found := sp.GetFirstGlobalVirtualGroup()
 	s.Require().True(found)
 	user := s.GenAndChargeAccounts(1, 1000000)[0]
-	// user2 := s.GenAndChargeAccounts(1, 1000000)[0]
+	user2 := s.GenAndChargeAccounts(1, 1000000)[0]
 	bucketName := storageutils.GenRandomBucketName()
 	msgCreateBucket := storagetypes.NewMsgCreateBucket(
 		user.GetAddr(), bucketName, storagetypes.VISIBILITY_TYPE_PUBLIC_READ, sp.OperatorKey.GetAddr(),
@@ -306,7 +308,7 @@ func (s *StorageTestSuite) TestCreateObject2() {
 
 	// CreateObject
 	// objectName := storageutils.GenRandomObjectName()
-	objectName := "ab(12"
+	objectName := "abc(123"
 	// create test buffer
 	var buffer bytes.Buffer
 	// Create 1MiB content where each line contains 1024 characters.
@@ -410,9 +412,21 @@ func (s *StorageTestSuite) TestCreateObject2() {
 	s.Require().Equal(queryHeadObjectAfterUpdateObjectResponse.ObjectInfo.Visibility, storagetypes.VISIBILITY_TYPE_INHERIT)
 	s.Require().Equal(queryHeadObjectAfterUpdateObjectResponse.ObjectInfo.ObjectName, objectName)
 
+	// Put bucket policy
+	statement := &types3.Statement{
+		Actions:   []types3.ActionType{types3.ACTION_DELETE_BUCKET},
+		Effect:    types3.EFFECT_ALLOW,
+		Resources: []string{types4.NewObjectGRN(bucketName, objectName).String()},
+	}
+
+	principal := types3.NewPrincipalWithAccount(user2.GetAddr())
+	msgPutPolicy := storagetypes.NewMsgPutPolicy(user.GetAddr(), types4.NewBucketGRN(bucketName).String(),
+		principal, []*types3.Statement{statement}, nil)
+	s.SendTxBlock(user, msgPutPolicy)
+
 	// DeleteObject
-	msgDeleteObject := storagetypes.NewMsgDeleteObject(user.GetAddr(), bucketName, objectName)
-	s.SendTxBlock(user, msgDeleteObject)
+	msgDeleteObject := storagetypes.NewMsgDeleteObject(user2.GetAddr(), bucketName, objectName)
+	s.SendTxBlock(user2, msgDeleteObject)
 
 	// DeleteBucket
 	msgDeleteBucket := storagetypes.NewMsgDeleteBucket(user.GetAddr(), bucketName)
