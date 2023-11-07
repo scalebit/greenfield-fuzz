@@ -161,6 +161,35 @@ func (s *ChallengeTestSuite) TestSubmit() {
 	s.Require().Equal(event.SegmentIndex, uint32(0))
 }
 
+func FuzzSubmit(f *testing.F) {
+	f.Add(1)
+	s := &ChallengeTestSuite{}
+	s.SetT(&testing.T{})
+	s.SetupSuite()
+
+	f.Fuzz(func(t *testing.T, a int) {
+		s.SetT(t)
+		user := s.GenAndChargeAccounts(1, 1000000)[0]
+		sp := s.PickStorageProvider()
+
+		bucketName, objectName, primarySp := s.createObject(sp)
+		msgSubmit := challengetypes.NewMsgSubmit(user.GetAddr(), primarySp.OperatorKey.GetAddr(), bucketName, objectName, true, 1000)
+		txRes := s.SendTxBlock(user, msgSubmit)
+		event := filterChallengeEventFromTx(txRes) // secondary sps are faked with primary sp, redundancy check is meaningless here
+		s.Require().GreaterOrEqual(event.ChallengeId, uint64(0))
+		s.Require().NotEqual(event.SegmentIndex, uint32(100))
+		s.Require().Equal(event.SpOperatorAddress, primarySp.OperatorKey.GetAddr().String())
+
+		bucketName, objectName, _ = s.createObject(sp)
+
+		msgSubmit = challengetypes.NewMsgSubmit(user.GetAddr(), primarySp.OperatorKey.GetAddr(), bucketName, objectName, false, 0)
+		txRes = s.SendTxBlock(user, msgSubmit)
+		event = filterChallengeEventFromTx(txRes)
+		s.Require().GreaterOrEqual(event.ChallengeId, uint64(0))
+		s.Require().Equal(event.SegmentIndex, uint32(0))
+	})
+}
+
 func (s *ChallengeTestSuite) calculateValidatorBitSet(height int64, blsKey string) *bitset.BitSet {
 	valBitSet := bitset.New(256)
 

@@ -60,3 +60,45 @@ func (s *Eip712TestSuite) TestMultiMessages() {
 	s.Require().NoError(err)
 	s.Require().Equal(queryHeadBucketResponseAfterUpdateBucket.BucketInfo.Visibility, storagetypes.VISIBILITY_TYPE_PRIVATE)
 }
+
+func TestFuzzMultiMessages(t *testing.T) {
+
+	s := &Eip712TestSuite{}
+	s.SetT(t)
+	s.SetupSuite()
+
+	var err error
+	sp := s.BaseSuite.PickStorageProvider()
+	gvg, found := sp.GetFirstGlobalVirtualGroup()
+	s.Require().True(found)
+	user := s.GenAndChargeAccounts(1, 1000000)[0]
+
+	for true {
+		// CreateBucket
+		bucketName := storageutils.GenRandomBucketName()
+		msgCreateBucket := storagetypes.NewMsgCreateBucket(
+			user.GetAddr(), bucketName, storagetypes.VISIBILITY_TYPE_PUBLIC_READ, sp.OperatorKey.GetAddr(),
+			nil, math.MaxUint, nil, 0)
+		msgCreateBucket.PrimarySpApproval.GlobalVirtualGroupFamilyId = gvg.FamilyId
+		msgCreateBucket.PrimarySpApproval.Sig, err = sp.ApprovalKey.Sign(msgCreateBucket.GetApprovalBytes())
+		s.Require().NoError(err)
+
+		// UpdateBucketInfo
+		msgUpdateBucketInfo := storagetypes.NewMsgUpdateBucketInfo(
+			user.GetAddr(), bucketName, nil, user.GetAddr(), storagetypes.VISIBILITY_TYPE_PRIVATE)
+		s.Require().NoError(err)
+
+		// send two messages together without error
+		s.SendTxBlock(user, msgCreateBucket, msgUpdateBucketInfo)
+
+		// verify modified bucketinfo
+		ctx := context.Background()
+		queryHeadBucketRequest := storagetypes.QueryHeadBucketRequest{
+			BucketName: bucketName,
+		}
+		queryHeadBucketResponseAfterUpdateBucket, err := s.Client.HeadBucket(ctx, &queryHeadBucketRequest)
+		s.Require().NoError(err)
+		s.Require().Equal(queryHeadBucketResponseAfterUpdateBucket.BucketInfo.Visibility, storagetypes.VISIBILITY_TYPE_PRIVATE)
+	}
+
+}

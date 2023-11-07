@@ -131,6 +131,88 @@ func (s *StorageTestSuite) TestCreateBucket() {
 	s.SendTxBlock(user, msgDeleteBucket)
 }
 
+func FuzzTestCreateBucket(f *testing.F) {
+	f.Add(1)
+	s := StorageTestSuite{}
+	s.SetT(&testing.T{})
+	s.SetupSuite()
+	f.Fuzz(func(t *testing.T, a int) {
+		s.SetT(t)
+		s.SetupTest()
+
+		var err error
+		sp := s.BaseSuite.PickStorageProvider()
+		gvg, found := sp.GetFirstGlobalVirtualGroup()
+		s.Require().True(found)
+		user := s.User
+		// CreateBucket
+		bucketName := storageutils.GenRandomBucketName()
+		msgCreateBucket := storagetypes.NewMsgCreateBucket(
+			user.GetAddr(), bucketName, storagetypes.VISIBILITY_TYPE_PUBLIC_READ, sp.OperatorKey.GetAddr(),
+			nil, math.MaxUint, nil, 0)
+		msgCreateBucket.PrimarySpApproval.GlobalVirtualGroupFamilyId = gvg.FamilyId
+		msgCreateBucket.PrimarySpApproval.Sig, err = sp.ApprovalKey.Sign(msgCreateBucket.GetApprovalBytes())
+		s.Require().NoError(err)
+		s.SendTxBlock(user, msgCreateBucket)
+
+		// HeadBucket
+		ctx := context.Background()
+		queryHeadBucketRequest := storagetypes.QueryHeadBucketRequest{
+			BucketName: bucketName,
+		}
+		queryHeadBucketResponse, err := s.Client.HeadBucket(ctx, &queryHeadBucketRequest)
+		s.Require().NoError(err)
+		s.Require().Equal(queryHeadBucketResponse.BucketInfo.BucketName, bucketName)
+		s.Require().Equal(queryHeadBucketResponse.BucketInfo.Owner, user.GetAddr().String())
+		s.Require().Equal(queryHeadBucketResponse.BucketInfo.GlobalVirtualGroupFamilyId, gvg.FamilyId)
+		s.Require().Equal(queryHeadBucketResponse.BucketInfo.PaymentAddress, user.GetAddr().String())
+		s.Require().Equal(queryHeadBucketResponse.BucketInfo.Visibility, storagetypes.VISIBILITY_TYPE_PUBLIC_READ)
+		s.Require().Equal(queryHeadBucketResponse.BucketInfo.SourceType, storagetypes.SOURCE_TYPE_ORIGIN)
+
+		queryQuotaUpdateTimeResponse, err := s.Client.QueryQuotaUpdateTime(ctx, &storagetypes.QueryQuoteUpdateTimeRequest{
+			BucketName: bucketName,
+		})
+		s.Require().NoError(err)
+		s.Require().Equal(queryHeadBucketResponse.BucketInfo.CreateAt, queryQuotaUpdateTimeResponse.UpdateAt)
+
+		// UpdateBucketInfo
+		msgUpdateBucketInfo := storagetypes.NewMsgUpdateBucketInfo(
+			user.GetAddr(), bucketName, nil, user.GetAddr(), storagetypes.VISIBILITY_TYPE_PRIVATE)
+		s.Require().NoError(err)
+		s.SendTxBlock(user, msgUpdateBucketInfo)
+		s.Require().NoError(err)
+
+		// verify modified bucketinfo
+		queryHeadBucketResponseAfterUpdateBucket, err := s.Client.HeadBucket(ctx, &queryHeadBucketRequest)
+		s.Require().NoError(err)
+		s.Require().Equal(queryHeadBucketResponseAfterUpdateBucket.BucketInfo.Visibility, storagetypes.VISIBILITY_TYPE_PRIVATE)
+
+		// verify HeadBucketById
+		queryHeadBucketResponseAfterUpdateBucket, err = s.Client.HeadBucketById(ctx, &storagetypes.QueryHeadBucketByIdRequest{BucketId: queryHeadBucketResponseAfterUpdateBucket.BucketInfo.Id.String()})
+		s.Require().NoError(err)
+		s.Require().Equal(queryHeadBucketResponseAfterUpdateBucket.BucketInfo.Visibility, storagetypes.VISIBILITY_TYPE_PRIVATE)
+		s.Require().Equal(queryHeadBucketResponseAfterUpdateBucket.BucketInfo.BucketName, bucketName)
+
+		// verify HeadBucketNFT
+		headBucketNftResponse, err := s.Client.HeadBucketNFT(ctx, &storagetypes.QueryNFTRequest{
+			TokenId: queryHeadBucketResponseAfterUpdateBucket.BucketInfo.Id.String(),
+		})
+		s.Require().NoError(err)
+		s.Require().Equal(headBucketNftResponse.MetaData.BucketName, bucketName)
+
+		// verify QueryIsPriceChanged
+		isPriceChanged, err := s.Client.QueryIsPriceChanged(ctx, &storagetypes.QueryIsPriceChangedRequest{
+			BucketName: bucketName,
+		})
+		s.Require().NoError(err)
+		s.Require().Equal(isPriceChanged.Changed, false)
+
+		// DeleteBucket
+		msgDeleteBucket := storagetypes.NewMsgDeleteBucket(user.GetAddr(), bucketName)
+		s.SendTxBlock(user, msgDeleteBucket)
+	})
+}
+
 func (s *StorageTestSuite) TestCreateObject() {
 	var err error
 	// CreateBucket
@@ -416,7 +498,7 @@ func (s *StorageTestSuite) TestPOCSubResources() {
 	statement := &types3.Statement{
 		Actions:   []types3.ActionType{types3.ACTION_DELETE_BUCKET},
 		Effect:    types3.EFFECT_ALLOW,
-		Resources: []string{types4.NewObjectGRN(bucketName, objectName).String()},
+		Resources: []string{types4.NewObjectGRN(bucketName, `abc\(123`).String()},
 	}
 
 	principal := types3.NewPrincipalWithAccount(user2.GetAddr())
